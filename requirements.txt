@@ -1,0 +1,66 @@
+# ---------------------------
+# Core Utilities
+# ---------------------------
+python-dotenv
+pydantic
+pydantic-settings
+requests
+
+# ---------------------------
+# Web Scraping
+# ---------------------------
+beautifulsoup4
+lxml
+newspaper3k
+
+# ---------------------------
+# Social & Trends Data
+# ---------------------------
+pytrends
+praw
+google-api-python-client
+
+# ---------------------------
+# Data Processing / Analysis
+# ---------------------------
+pandas
+numpy
+
+# ---------------------------
+# Time Series (lightweight)
+# ---------------------------
+statsmodels
+
+# ---------------------------
+# Database Support
+# ---------------------------
+SQLAlchemy
+psycopg2-binary
+pymongo
+redis
+
+# ---------------------------
+# FastAPI Backend
+# ---------------------------
+fastapi
+uvicorn
+
+# ---------------------------
+# Dashboard (Streamlit)
+# ---------------------------
+streamlit
+plotly
+altair
+
+# ---------------------------
+# NLP (Optional)
+# ---------------------------
+nltk
+vaderSentiment
+
+# ---------------------------
+# Dev Tools
+# ---------------------------
+pytest
+black
+isort
