@@ -2,8 +2,12 @@ import requests
 import feedparser
 from bs4 import BeautifulSoup
 from datetime import datetime
+from src.database.mongo import MongoDB
 
 class NewsCollector:
+    
+    def __init__(self):
+        self.db = MongoDB()
 
     def fetch_adaderana(self):
         url = "https://www.adaderana.lk/hot-news"
@@ -31,6 +35,7 @@ class NewsCollector:
             }
 
             articles.append(article)
+            self.db.insert_many("news", articles)
 
         return articles
     
@@ -96,6 +101,7 @@ class NewsCollector:
             # stop when we have a reasonable number
             if len(articles) >= 30:
                 break
+            self.db.insert_many("news", articles)
 
         return articles
 
@@ -116,8 +122,12 @@ class NewsCollector:
                 "published": entry.get("published", None),
                 "scraped_at": datetime.utcnow().isoformat()
             })
-
+            
+        self.db.insert_many("news", articles)
         return articles
+    
+    
+
 
 
 

@@ -1,3 +1,4 @@
+"""
 import sys
 import os
 
@@ -9,3 +10,5 @@ collector = GoogleTrendsSelenium()
 
 data = collector.fetch_trending_now("LK")
 print(data)
+
+"""

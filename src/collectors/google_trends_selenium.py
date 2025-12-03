@@ -1,3 +1,6 @@
+# Use to get additional Google Trends data via Selenium but not worked
+
+"""
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
@@ -38,3 +41,4 @@ class GoogleTrendsSelenium:
                 })
 
         return results
+"""

@@ -2,6 +2,7 @@ import os
 import requests
 from datetime import datetime
 from dotenv import load_dotenv
+from src.database.mongo import MongoDB
 
 load_dotenv()
 
@@ -12,6 +13,8 @@ class WeatherCollector:
         self.base_url = "https://api.openweathermap.org/data/2.5"
         self.default_city = "Colombo"
         self.country = "LK"
+        self.db = MongoDB()
+
 
     def fetch_current_weather(self, city=None):
         """
@@ -30,7 +33,7 @@ class WeatherCollector:
             resp = requests.get(url, params=params, timeout=10)
             data = resp.json()
 
-            return {
+            data = {
                 "city": city,
                 "temp": data["main"]["temp"],
                 "feels_like": data["main"]["feels_like"],
@@ -39,6 +42,8 @@ class WeatherCollector:
                 "description": data["weather"][0]["description"],
                 "scraped_at": datetime.utcnow().isoformat()
             }
+            self.db.insert_many("weather_now", [data])
+
 
         except Exception as e:
             print("Weather Error:", str(e))
@@ -72,7 +77,9 @@ class WeatherCollector:
                     "description": item["weather"][0]["description"],
                     "scraped_at": datetime.utcnow().isoformat()
                 })
-
+                
+                
+            self.db.insert_many("weather_forecast", forecast_list)
             return forecast_list
 
         except Exception as e:

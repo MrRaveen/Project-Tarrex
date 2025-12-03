@@ -1,5 +1,6 @@
 from pytrends.request import TrendReq
 from datetime import datetime
+from src.database.mongo import MongoDB
 
 class GoogleTrendsCollector:
 
@@ -8,6 +9,7 @@ class GoogleTrendsCollector:
             hl="en-US",
             tz=330   # Sri Lanka timezone (UTC+5:30)
         )
+        self.db = MongoDB()
 
 
     def fetch_top_and_rising(self, keywords=["Sri Lanka"], timeframe="now 7-d"):
@@ -48,6 +50,7 @@ class GoogleTrendsCollector:
                             "timeframe": timeframe,
                             "scraped_at": datetime.utcnow().isoformat()
                         })
+            self.db.insert_many("google_trends_top_rising", output)
 
             return output
 

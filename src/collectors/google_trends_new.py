@@ -1,3 +1,5 @@
+# use to get Google Trends data via requests but fails
+"""
 # src/collectors/google_trends_new.py
 import requests
 import json
@@ -20,13 +22,7 @@ class GoogleTrendsNew:
         return re.sub(r"^\)\]\}',\s*", "", text, count=1)
 
     def fetch_trending_now(self, country="LK", debug=False, fallback_limit=10):
-        """
-        Try widget API first. If that fails, fallback to scraping the public Trends page for keywords.
-        Returns:
-            dict with keys:
-              - 'timeline': list of {time, value} (if widget succeeded)
-              - 'keywords': list of keyword strings (from widget related or fallback scraping)
-        """
+
         result = {"timeline": [], "keywords": []}
 
         # --- PART A: Try the official explore -> widget -> widgetdata flow ---
@@ -190,3 +186,4 @@ class GoogleTrendsNew:
 
         # final: empty result
         return result
+"""
