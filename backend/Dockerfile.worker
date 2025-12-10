@@ -1,0 +1,48 @@
+# #Builds a Docker image for running Celery workers for the backend app
+# # Use Python 3.11 slim image
+# FROM python:3.11-slim
+
+# # Set working directory
+# WORKDIR /app
+
+# # Copy everything from project root
+# COPY . .
+
+# # Install dependencies
+# RUN pip install --no-cache-dir -r backend/requirements.txt
+# RUN pip install flower
+
+# # Set Python path
+# ENV PYTHONPATH=/app
+
+# # Default command (can be overridden in docker-compose)
+# CMD ["celery", "-A", "backend.app.config.celery_app", "worker", "--loglevel=info"]
+
+
+# Builds a Docker image for running Celery workers for the backend app
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy backend requirements and install
+COPY backend/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Install flower explicitly
+RUN pip install flower
+
+# Copy backend code
+COPY backend/ .
+
+# Set Python path
+ENV PYTHONPATH=/app
+ENV DB_NAME=tarrex
+
+# Default command (can be overridden in docker-compose)
+CMD ["celery", "-A", "app.config.celery_app", "worker", "--loglevel=info"]

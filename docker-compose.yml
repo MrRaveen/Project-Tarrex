@@ -1,0 +1,73 @@
+version: "3.9"
+
+services:
+  # ----------------
+  # CACHE (Redis)
+  # ----------------
+  redis:
+    image: redis:7
+    command: ["redis-server", "--save", "60", "1"]
+    ports:
+      - "6379:6379"
+
+  # FLASK API
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    volumes:
+      - ./backend:/app:delegated
+    env_file:
+      - .env
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PYTHONPATH=/app
+    depends_on:
+      redis:
+        condition: service_started
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  # ----------------
+  # CELERY WORKER
+  # ----------------
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.worker
+    volumes:
+      - ./backend:/app:delegated
+    env_file:
+      - .env
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PYTHONPATH=/app
+    depends_on:
+      redis:
+        condition: service_started
+    command: ["celery", "-A", "app.config.celery_app", "worker", "--loglevel=info", "--concurrency=2", "-Q", "default"]
+    restart: unless-stopped
+
+  # ----------------
+  # FLOWER (Celery Monitoring)
+  # ----------------
+  flower:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.worker
+    volumes:
+      - ./backend:/app:delegated
+    environment:
+      - PYTHONPATH=/app
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    command: ["python", "-m", "flower", "--app=app.config.celery_app", "flower", "--port=5555"]
+    ports:
+      - "5555:5555"
+    depends_on:
+      - redis
+      - worker
+  
