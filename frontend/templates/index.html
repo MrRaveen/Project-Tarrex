@@ -144,6 +144,63 @@
     </div>
 </div>
 
+<!-- Trends Visualization -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-trending-up"></i> Trends Overview (Last 7 Days)</h5>
+            </div>
+            <div class="card-body">
+                {% if trends.status == 'success' and trends.data.trends %}
+                    <div class="row">
+                        <!-- Main Trend Chart -->
+                        <div class="col-md-8">
+                            <canvas id="trendChart" height="300"></canvas>
+                        </div>
+                        
+                        <!-- Trend Summary -->
+                        <div class="col-md-4">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-title">Trend Summary</h6>
+                                    {% for trend in trends.data.trends %}
+                                        {% if trend.type == 'overall' %}
+                                            <div class="mb-3">
+                                                <strong>Overall Trend:</strong>
+                                                <span class="badge {% if trend.direction == 'improving' %}bg-success{% elif trend.direction == 'declining' %}bg-danger{% else %}bg-secondary{% endif %} float-end">
+                                                    {{ trend.direction|title }}
+                                                </span>
+                                            </div>
+                                            <div class="mb-3">
+                                                <strong>Strength:</strong>
+                                                <span class="badge {% if trend.strength > 0.7 %}bg-success{% elif trend.strength > 0.4 %}bg-warning{% else %}bg-secondary{% endif %} float-end">
+                                                    {{ "%.0f"|format(trend.strength * 100) }}%
+                                                </span>
+                                            </div>
+                                            <div class="mb-3">
+                                                <strong>Confidence:</strong>
+                                                <span class="badge {% if trend.confidence > 0.7 %}bg-success{% elif trend.confidence > 0.4 %}bg-warning{% else %}bg-secondary{% endif %} float-end">
+                                                    {{ "%.0f"|format(trend.confidence * 100) }}%
+                                                </span>
+                                            </div>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-chart-line fa-3x mb-2"></i>
+                        <p>No trend data available</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Recent Risks and Insights -->
 <div class="row mt-4">
     <!-- Recent Risks -->
@@ -246,4 +303,103 @@
     </div>
 </div>
 
+{% endblock %}
+
+{% block extra_js %}
+{% if trends.status == 'success' and trends.data.trends %}
+<script>
+// Initialize trend chart
+function initializeTrendChart() {
+    const ctx = document.getElementById('trendChart').getContext('2d');
+    
+    // Prepare data for the chart
+    const trendData = {{ trends.data.trends|tojson }};
+    
+    // Find overall trend data
+    const overallTrend = trendData.find(trend => trend.type === 'overall');
+    const categoryTrends = trendData.filter(trend => trend.type !== 'overall');
+    
+    // Prepare datasets for the chart
+    const datasets = [];
+    const labels = [];
+    
+    // Add overall trend if available
+    if (overallTrend && overallTrend.historical_data) {
+        labels.push(...overallTrend.historical_data.map(item => item.date));
+        
+        datasets.push({
+            label: 'Overall Trend',
+            data: overallTrend.historical_data.map(item => item.value),
+            borderColor: '#007bff',
+            backgroundColor: 'rgba(0, 123, 255, 0.1)',
+            borderWidth: 3,
+            fill: true,
+            tension: 0.4
+        });
+    }
+    
+    // Add category trends with different colors
+    const colors = ['#28a745', '#dc3545', '#ffc107', '#17a2b8', '#6c757d'];
+    
+    categoryTrends.slice(0, 4).forEach((trend, index) => {
+        if (trend.historical_data) {
+            datasets.push({
+                label: trend.type.replace('_', ' ').toUpperCase(),
+                data: trend.historical_data.map(item => item.value),
+                borderColor: colors[index % colors.length],
+                backgroundColor: 'rgba(0, 0, 0, 0)',
+                borderWidth: 2,
+                borderDash: [5, 5],
+                tension: 0.4
+            });
+        }
+    });
+    
+    // Create the chart
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Situational Trends Over Time',
+                    font: { size: 16 }
+                },
+                legend: {
+                    position: 'top',
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    title: {
+                        display: true,
+                        text: 'Trend Value'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Date'
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Initialize chart when page loads
+document.addEventListener('DOMContentLoaded', initializeTrendChart);
+</script>
+{% endif %}
 {% endblock %}
