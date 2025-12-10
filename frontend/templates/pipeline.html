@@ -1,0 +1,488 @@
+{% extends "base.html" %}
+
+{% block title %}Pipeline Management - Sri Lanka Situational Awareness{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0">
+            <i class="fas fa-cogs text-secondary me-2"></i>
+            Pipeline Management
+        </h1>
+        <div class="btn-group">
+            <button class="btn btn-outline-primary" onclick="refreshPipelineStatus()">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+            <button class="btn btn-outline-success" onclick="runFullPipeline()">
+                <i class="fas fa-play"></i> Run Full Pipeline
+            </button>
+        </div>
+    </div>
+
+    <!-- Pipeline Status Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body text-center">
+                    <i class="fas fa-cloud-download-alt fa-2x mb-2"></i>
+                    <h5 class="card-title">Scraping</h5>
+                    <h3 class="card-text" id="scraping-status">Idle</h3>
+                    <small id="scraping-last-run">Never run</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card bg-info text-white">
+                <div class="card-body text-center">
+                    <i class="fas fa-database fa-2x mb-2"></i>
+                    <h5 class="card-title">Ingestion</h5>
+                    <h3 class="card-text" id="ingestion-status">Idle</h3>
+                    <small id="ingestion-last-run">Never run</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body text-center">
+                    <i class="fas fa-magic fa-2x mb-2"></i>
+                    <h5 class="card-title">Preprocessing</h5>
+                    <h3 class="card-text" id="preprocessing-status">Idle</h3>
+                    <small id="preprocessing-last-run">Never run</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card bg-success text-white">
+                <div class="card-body text-center">
+                    <i class="fas fa-brain fa-2x mb-2"></i>
+                    <h5 class="card-title">Analysis</h5>
+                    <h3 class="card-text" id="analysis-status">Idle</h3>
+                    <small id="analysis-last-run">Never run</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pipeline Control Panel -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-sliders-h me-2"></i>
+                Pipeline Controls
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-primary" onclick="runScraping()">
+                            <i class="fas fa-cloud-download-alt"></i> Run Scraping
+                        </button>
+                        <small class="text-muted">Collect data from all sources</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-info" onclick="runIngestion()">
+                            <i class="fas fa-database"></i> Run Ingestion
+                        </button>
+                        <small class="text-muted">Process and store raw data</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-warning" onclick="runPreprocessing()">
+                            <i class="fas fa-magic"></i> Run Preprocessing
+                        </button>
+                        <small class="text-muted">Clean and transform data</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-success" onclick="runAnalysis()">
+                            <i class="fas fa-brain"></i> Run Analysis
+                        </button>
+                        <small class="text-muted">Generate insights and trends</small>
+                    </div>
+                </div>
+            </div>
+
+            <hr>
+
+            <div class="row mt-3">
+                <div class="col-md-6">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="autoSchedule" checked>
+                        <label class="form-check-label" for="autoSchedule">
+                            Enable Auto Scheduling
+                        </label>
+                    </div>
+                    <small class="text-muted">Automatically run pipeline at scheduled intervals</small>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="emailAlerts" checked>
+                        <label class="form-check-label" for="emailAlerts">
+                            Enable Email Alerts
+                        </label>
+                    </div>
+                    <small class="text-muted">Receive notifications on pipeline failures</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pipeline History -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-history me-2"></i>
+                Pipeline Execution History
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover" id="pipelineHistoryTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Run ID</th>
+                            <th>Pipeline Stage</th>
+                            <th>Status</th>
+                            <th>Start Time</th>
+                            <th>End Time</th>
+                            <th>Duration</th>
+                            <th>Records Processed</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if pipeline_history and pipeline_history.runs %}
+                            {% for run in pipeline_history.runs %}
+                            <tr>
+                                <td><code>{{ run.run_id[:8] }}</code></td>
+                                <td>
+                                    <span class="badge {% if run.stage == 'scraping' %}bg-primary{% elif run.stage == 'ingestion' %}bg-info{% elif run.stage == 'preprocessing' %}bg-warning{% else %}bg-success{% endif %}">
+                                        {{ run.stage|upper }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge {% if run.status == 'completed' %}bg-success{% elif run.status == 'failed' %}bg-danger{% elif run.status == 'running' %}bg-warning{% else %}bg-secondary{% endif %}">
+                                        {{ run.status|upper }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <small>{{ run.start_time|datetimeformat }}</small>
+                                </td>
+                                <td>
+                                    <small>{% if run.end_time %}{{ run.end_time|datetimeformat }}{% else %}--{% endif %}</small>
+                                </td>
+                                <td>
+                                    <small>{% if run.duration %}{{ run.duration }}s{% else %}--{% endif %}</small>
+                                </td>
+                                <td>
+                                    <span class="badge bg-light text-dark">{{ run.records_processed or 0 }}</span>
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-outline-primary" onclick="viewRunDetails('{{ run.run_id }}')">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <button class="btn btn-outline-info" onclick="downloadRunLogs('{{ run.run_id }}')">
+                                            <i class="fas fa-download"></i>
+                                        </button>
+                                        {% if run.status == 'failed' %}
+                                        <button class="btn btn-outline-warning" onclick="retryRun('{{ run.run_id }}')">
+                                            <i class="fas fa-redo"></i>
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="8" class="text-center text-muted py-4">
+                                    <i class="fas fa-history fa-2x text-secondary mb-2"></i>
+                                    <br>
+                                    No pipeline runs recorded
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if pipeline_history and pipeline_history.pagination %}
+            <nav aria-label="Pipeline history pagination">
+                <ul class="pagination justify-content-center">
+                    <li class="page-item {% if not pipeline_history.pagination.has_prev %}disabled{% endif %}">
+                        <a class="page-link" href="?page={{ pipeline_history.pagination.prev_num }}" tabindex="-1">Previous</a>
+                    </li>
+                    {% for page_num in pipeline_history.pagination.iter_pages() %}
+                        <li class="page-item {% if page_num == pipeline_history.pagination.page %}active{% endif %}">
+                            <a class="page-link" href="?page={{ page_num }}">{{ page_num }}</a>
+                        </li>
+                    {% endfor %}
+                    <li class="page-item {% if not pipeline_history.pagination.has_next %}disabled{% endif %}">
+                        <a class="page-link" href="?page={{ pipeline_history.pagination.next_num }}">Next</a>
+                    </li>
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Run Details Modal -->
+<div class="modal fade" id="runDetailsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="runModalTitle">Run Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="runModalBody">
+                <!-- Run details will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="downloadRunLogsModal()">Download Logs</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Initialize page
+    document.addEventListener('DOMContentLoaded', function() {
+        loadPipelineStatus();
+        loadPipelineHistory();
+        setupAutoRefresh();
+    });
+
+    function loadPipelineStatus() {
+        fetch('/api/pipeline/status')
+            .then(response => response.json())
+            .then(data => {
+                updateStatusCard('scraping', data.scraping);
+                updateStatusCard('ingestion', data.ingestion);
+                updateStatusCard('preprocessing', data.preprocessing);
+                updateStatusCard('analysis', data.analysis);
+            })
+            .catch(error => {
+                console.error('Error loading pipeline status:', error);
+            });
+    }
+
+    function updateStatusCard(stage, statusData) {
+        const statusElement = document.getElementById(`${stage}-status`);
+        const lastRunElement = document.getElementById(`${stage}-last-run`);
+        
+        if (statusData.status === 'running') {
+            statusElement.textContent = 'Running';
+            statusElement.parentElement.parentElement.classList.add('bg-warning');
+        } else if (statusData.status === 'completed') {
+            statusElement.textContent = 'Completed';
+            statusElement.parentElement.parentElement.classList.add('bg-success');
+        } else if (statusData.status === 'failed') {
+            statusElement.textContent = 'Failed';
+            statusElement.parentElement.parentElement.classList.add('bg-danger');
+        } else {
+            statusElement.textContent = 'Idle';
+        }
+
+        if (statusData.last_run) {
+            lastRunElement.textContent = `Last: ${new Date(statusData.last_run).toLocaleString()}`;
+        }
+    }
+
+    function loadPipelineHistory() {
+        fetch('/api/pipeline/history?limit=10')
+            .then(response => response.json())
+            .then(data => {
+                // History table is populated from backend data
+            })
+            .catch(error => {
+                console.error('Error loading pipeline history:', error);
+            });
+    }
+
+    function setupAutoRefresh() {
+        // Auto-refresh status every 30 seconds
+        setInterval(loadPipelineStatus, 30000);
+    }
+
+    function refreshPipelineStatus() {
+        loadPipelineStatus();
+        loadPipelineHistory();
+    }
+
+    function runFullPipeline() {
+        if (confirm('Run full data pipeline? This may take several minutes.')) {
+            fetch('/api/pipeline/run/full', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Pipeline started successfully');
+                    refreshPipelineStatus();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error starting pipeline:', error);
+                alert('Error starting pipeline');
+            });
+        }
+    }
+
+    function runScraping() {
+        if (confirm('Run scraping pipeline stage?')) {
+            fetch('/api/pipeline/run/scraping', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Scraping started');
+                    refreshPipelineStatus();
+                }
+            })
+            .catch(error => {
+                console.error('Error starting scraping:', error);
+            });
+        }
+    }
+
+    function runIngestion() {
+        if (confirm('Run ingestion pipeline stage?')) {
+            fetch('/api/pipeline/run/ingestion', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Ingestion started');
+                    refreshPipelineStatus();
+                }
+            })
+            .catch(error => {
+                console.error('Error starting ingestion:', error);
+            });
+        }
+    }
+
+    function runPreprocessing() {
+        if (confirm('Run preprocessing pipeline stage?')) {
+            fetch('/api/pipeline/run/preprocessing', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Preprocessing started');
+                    refreshPipelineStatus();
+                }
+            })
+            .catch(error => {
+                console.error('Error starting preprocessing:', error);
+            });
+        }
+    }
+
+    function runAnalysis() {
+        if (confirm('Run analysis pipeline stage?')) {
+            fetch('/api/pipeline/run/analysis', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Analysis started');
+                    refreshPipelineStatus();
+                }
+            })
+            .catch(error => {
+                console.error('Error starting analysis:', error);
+            });
+        }
+    }
+
+    function viewRunDetails(runId) {
+        fetch(`/api/pipeline/runs/${runId}`)
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('runModalTitle').textContent = `Run Details: ${runId}`;
+                document.getElementById('runModalBody').innerHTML = `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <strong>Stage:</strong> ${data.stage}<br>
+                            <strong>Status:</strong> 
+                            <span class="badge ${data.status === 'completed' ? 'bg-success' : data.status === 'failed' ? 'bg-danger' : data.status === 'running' ? 'bg-warning' : 'bg-secondary'}">
+                                ${data.status}
+                            </span><br>
+                            <strong>Start Time:</strong> ${new Date(data.start_time).toLocaleString()}<br>
+                            <strong>End Time:</strong> ${data.end_time ? new Date(data.end_time).toLocaleString() : '--'}
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Duration:</strong> ${data.duration || '--'} seconds<br>
+                            <strong>Records Processed:</strong> ${data.records_processed || 0}<br>
+                            <strong>Success Rate:</strong> ${data.success_rate || 0}%<br>
+                            <strong>Error Count:</strong> ${data.error_count || 0}
+                        </div>
+                    </div>
+                    ${data.error_message ? `
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <strong>Error Message:</strong>
+                            <div class="alert alert-danger">${data.error_message}</div>
+                        </div>
+                    </div>
+                    ` : ''}
+                `;
+                
+                const modal = new bootstrap.Modal(document.getElementById('runDetailsModal'));
+                modal.show();
+            })
+            .catch(error => {
+                console.error('Error loading run details:', error);
+                alert('Error loading run details');
+            });
+    }
+
+    function downloadRunLogs(runId) {
+        alert(`Download logs for run ${runId} - functionality to be implemented`);
+    }
+
+    function retryRun(runId) {
+        if (confirm('Retry this failed run?')) {
+            fetch(`/api/pipeline/runs/${runId}/retry`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Run queued for retry');
+                    refreshPipelineStatus();
+                }
+            })
+            .catch(error => {
+                console.error('Error retrying run:', error);
+            });
+        }
+    }
+
+    function downloadRunLogsModal() {
+        alert('Download logs functionality to be implemented');
+    }
+</script>
+{% endblock %}

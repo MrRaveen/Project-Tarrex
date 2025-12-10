@@ -1,0 +1,382 @@
+{% extends "base.html" %}
+
+{% block title %}Insights & Analysis - Sri Lanka Situational Awareness{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0">
+            <i class="fas fa-lightbulb text-warning me-2"></i>
+            Insights & Analysis
+        </h1>
+        <div class="btn-group">
+            <button class="btn btn-outline-primary" onclick="refreshInsights()">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+            <button class="btn btn-outline-success" onclick="generateInsightReport()">
+                <i class="fas fa-file-pdf"></i> Generate Report
+            </button>
+        </div>
+    </div>
+
+    <!-- Insight Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body text-center">
+                    <i class="fas fa-brain fa-2x mb-2"></i>
+                    <h5 class="card-title">Total Insights</h5>
+                    <h3 class="card-text" id="total-insights">0</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card bg-success text-white">
+                <div class="card-body text-center">
+                    <i class="fas fa-chart-line fa-2x mb-2"></i>
+                    <h5 class="card-title">Trending Insights</h5>
+                    <h3 class="card-text" id="trending-insights">0</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card bg-info text-white">
+                <div class="card-body text-center">
+                    <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+                    <h5 class="card-title">Critical Insights</h5>
+                    <h3 class="card-text" id="critical-insights">0</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body text-center">
+                    <i class="fas fa-clock fa-2x mb-2"></i>
+                    <h5 class="card-title">Recent (24h)</h5>
+                    <h3 class="card-text" id="recent-insights">0</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Insight Filter Form -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-filter me-2"></i>
+                Filter Insights
+            </h5>
+        </div>
+        <div class="card-body">
+            <form id="insightFilterForm" class="row g-3">
+                <div class="col-md-3">
+                    <label for="category" class="form-label">Category</label>
+                    <select class="form-select" id="category" name="category">
+                        <option value="">All Categories</option>
+                        <option value="economic">Economic</option>
+                        <option value="social">Social</option>
+                        <option value="environmental">Environmental</option>
+                        <option value="political">Political</option>
+                        <option value="market">Market Trends</option>
+                        <option value="security">Security</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="impact" class="form-label">Impact Level</label>
+                    <select class="form-select" id="impact" name="impact">
+                        <option value="">All Impacts</option>
+                        <option value="high">High Impact</option>
+                        <option value="medium">Medium Impact</option>
+                        <option value="low">Low Impact</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="timeframe" class="form-label">Timeframe</label>
+                    <select class="form-select" id="timeframe" name="timeframe">
+                        <option value="24h">Last 24 Hours</option>
+                        <option value="7d" selected>Last 7 Days</option>
+                        <option value="30d">Last 30 Days</option>
+                        <option value="all">All Time</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="confidence" class="form-label">Min Confidence</label>
+                    <input type="range" class="form-range" id="confidence" name="confidence" min="0" max="100" value="70">
+                    <span id="confidenceValue">70%</span>
+                </div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-search"></i> Apply Filters
+                    </button>
+                    <button type="reset" class="btn btn-outline-secondary ms-2">
+                        <i class="fas fa-times"></i> Clear Filters
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Insights Grid -->
+    <div class="row" id="insightsGrid">
+        {% if insights and insights.insights %}
+            {% for insight in insights.insights %}
+            <div class="col-xl-4 col-lg-6 col-md-6 mb-4">
+                <div class="card h-100 insight-card {% if insight.impact_level == 'high' %}border-danger{% elif insight.impact_level == 'medium' %}border-warning{% else %}border-info{% endif %}">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span class="badge {% if insight.impact_level == 'high' %}bg-danger{% elif insight.impact_level == 'medium' %}bg-warning{% else %}bg-info{% endif %}">
+                            {{ insight.impact_level|upper }}
+                        </span>
+                        <span class="badge bg-secondary">{{ insight.category|upper }}</span>
+                    </div>
+                    <div class="card-body">
+                        <h6 class="card-title text-truncate">{{ insight.title }}</h6>
+                        <p class="card-text" style="height: 80px; overflow: hidden;">
+                            {{ insight.summary }}
+                        </p>
+                        
+                        <!-- Confidence Meter -->
+                        <div class="mb-3">
+                            <small class="text-muted">Confidence: {{ insight.confidence }}%</small>
+                            <div class="progress" style="height: 8px;">
+                                <div class="progress-bar {% if insight.confidence >= 80 %}bg-success{% elif insight.confidence >= 60 %}bg-info{% elif insight.confidence >= 40 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                     style="width: {{ insight.confidence }}%" 
+                                     role="progressbar">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Key Metrics -->
+                        {% if insight.key_metrics %}
+                        <div class="mb-3">
+                            <small class="text-muted">Key Metrics:</small>
+                            <div class="d-flex flex-wrap gap-1">
+                                {% for metric in insight.key_metrics[:3] %}
+                                <span class="badge bg-light text-dark border">{{ metric }}</span>
+                                {% endfor %}
+                                {% if insight.key_metrics|length > 3 %}
+                                <span class="badge bg-light text-dark border">+{{ insight.key_metrics|length - 3 }} more</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Supporting Evidence -->
+                        {% if insight.supporting_evidence_count > 0 %}
+                        <div class="mb-3">
+                            <small class="text-muted">
+                                <i class="fas fa-chart-bar"></i>
+                                {{ insight.supporting_evidence_count }} data points
+                            </small>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="card-footer bg-transparent">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted">
+                                <i class="fas fa-clock"></i>
+                                {{ insight.generated_at|datetimeformat }}
+                            </small>
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-primary" onclick="viewInsightDetails('{{ insight.id }}')">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button class="btn btn-outline-success" onclick="shareInsight('{{ insight.id }}')">
+                                    <i class="fas fa-share"></i>
+                                </button>
+                                <button class="btn btn-outline-info" onclick="exportInsight('{{ insight.id }}')">
+                                    <i class="fas fa-download"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="col-12">
+                <div class="text-center text-muted py-5">
+                    <i class="fas fa-lightbulb fa-3x text-warning mb-3"></i>
+                    <h4>No insights available</h4>
+                    <p>Insights will be generated as data is processed</p>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Pagination -->
+    {% if insights and insights.pagination %}
+    <nav aria-label="Insights pagination">
+        <ul class="pagination justify-content-center">
+            <li class="page-item {% if not insights.pagination.has_prev %}disabled{% endif %}">
+                <a class="page-link" href="?page={{ insights.pagination.prev_num }}" tabindex="-1">Previous</a>
+            </li>
+            {% for page_num in insights.pagination.iter_pages() %}
+                <li class="page-item {% if page_num == insights.pagination.page %}active{% endif %}">
+                    <a class="page-link" href="?page={{ page_num }}">{{ page_num }}</a>
+                </li>
+            {% endfor %}
+            <li class="page-item {% if not insights.pagination.has_next %}disabled{% endif %}">
+                <a class="page-link" href="?page={{ insights.pagination.next_num }}">Next</a>
+            </li>
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+
+<!-- Insight Details Modal -->
+<div class="modal fade" id="insightDetailsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="insightModalTitle">Insight Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="insightModalBody">
+                <!-- Insight details will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="exportInsightModal()">Export</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Initialize page
+    document.addEventListener('DOMContentLoaded', function() {
+        updateInsightCounts();
+        setupFilterForm();
+        setupConfidenceSlider();
+    });
+
+    function updateInsightCounts() {
+        // Count insights by type from the grid
+        const total = document.querySelectorAll('.insight-card').length;
+        const trending = document.querySelectorAll('.card.border-warning, .card.border-danger').length;
+        const critical = document.querySelectorAll('.card.border-danger').length;
+        const recent = document.querySelectorAll('.insight-card').length; // Simplified for demo
+
+        document.getElementById('total-insights').textContent = total;
+        document.getElementById('trending-insights').textContent = trending;
+        document.getElementById('critical-insights').textContent = critical;
+        document.getElementById('recent-insights').textContent = recent;
+    }
+
+    function setupFilterForm() {
+        const form = document.getElementById('insightFilterForm');
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(form);
+            const params = new URLSearchParams(formData);
+            window.location.href = '{{ url_for("insights") }}?' + params.toString();
+        });
+    }
+
+    function setupConfidenceSlider() {
+        const slider = document.getElementById('confidence');
+        const valueDisplay = document.getElementById('confidenceValue');
+        
+        slider.addEventListener('input', function() {
+            valueDisplay.textContent = this.value + '%';
+        });
+    }
+
+    function refreshInsights() {
+        window.location.reload();
+    }
+
+    function generateInsightReport() {
+        alert('PDF report generation will be implemented soon');
+    }
+
+    function viewInsightDetails(insightId) {
+        fetch(`/api/insights/${insightId}`)
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('insightModalTitle').textContent = data.title;
+                document.getElementById('insightModalBody').innerHTML = `
+                    <div class="row">
+                        <div class="col-md-8">
+                            <h6>Summary</h6>
+                            <p class="lead">${data.summary}</p>
+                            
+                            <h6 class="mt-4">Detailed Analysis</h6>
+                            <p>${data.detailed_analysis || 'No detailed analysis available'}</p>
+                            
+                            {% if data.recommended_actions %}
+                            <h6 class="mt-4">Recommended Actions</h6>
+                            <ul class="list-group">
+                                {% for action in data.recommended_actions %}
+                                <li class="list-group-item">${action}</li>
+                                {% endfor %}
+                            </ul>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0">Insight Metadata</h6>
+                                </div>
+                                <div class="card-body">
+                                    <p><strong>Category:</strong><br>
+                                    <span class="badge bg-secondary">${data.category.toUpperCase()}</span></p>
+                                    
+                                    <p><strong>Impact Level:</strong><br>
+                                    <span class="badge ${data.impact_level === 'high' ? 'bg-danger' : data.impact_level === 'medium' ? 'bg-warning' : 'bg-info'}">
+                                        ${data.impact_level.toUpperCase()}
+                                    </span></p>
+                                    
+                                    <p><strong>Confidence:</strong><br>
+                                    <div class="progress" style="height: 20px;">
+                                        <div class="progress-bar ${data.confidence >= 80 ? 'bg-success' : data.confidence >= 60 ? 'bg-info' : data.confidence >= 40 ? 'bg-warning' : 'bg-danger'}" 
+                                             style="width: ${data.confidence}%">
+                                            ${data.confidence}%
+                                        </div>
+                                    </div></p>
+                                    
+                                    <p><strong>Generated:</strong><br>
+                                    ${new Date(data.generated_at).toLocaleString()}</p>
+                                    
+                                    <p><strong>Data Sources:</strong><br>
+                                    <small class="text-muted">${data.data_sources.join(', ') || 'Multiple sources'}</small></p>
+                                    
+                                    {% if data.key_metrics %}
+                                    <p><strong>Key Metrics:</strong><br>
+                                    <div class="d-flex flex-wrap gap-1">
+                                        {% for metric in data.key_metrics %}
+                                        <span class="badge bg-light text-dark border">${metric}</span>
+                                        {% endfor %}
+                                    </div></p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                const modal = new bootstrap.Modal(document.getElementById('insightDetailsModal'));
+                modal.show();
+            })
+            .catch(error => {
+                console.error('Error loading insight details:', error);
+                alert('Error loading insight details');
+            });
+    }
+
+    function shareInsight(insightId) {
+        alert('Share functionality will be implemented soon');
+    }
+
+    function exportInsight(insightId) {
+        alert('Export functionality will be implemented soon');
+    }
+
+    function exportInsightModal() {
+        alert('Modal export functionality will be implemented soon');
+    }
+</script>
+{% endblock %}

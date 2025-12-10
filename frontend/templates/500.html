@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+
+{% block title %}Server Error - Sri Lanka Situational Awareness{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-md-8 text-center">
+            <div class="error-page">
+                <h1 class="display-1 text-danger">500</h1>
+                <h2 class="h4 text-muted mb-4">
+                    <i class="fas fa-server me-2"></i>
+                    Internal Server Error
+                </h2>
+                
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <p class="lead">
+                            Something went wrong on our server. Our team has been notified and is working on the issue.
+                        </p>
+                        <p class="text-muted">
+                            Please try again later or contact support if the problem persists.
+                        </p>
+                        
+                        {% if error_id %}
+                        <div class="alert alert-info mt-3">
+                            <strong>Error Reference:</strong> 
+                            <code>{{ error_id }}</code>
+                            <br>
+                            <small>Please provide this code when contacting support.</small>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+                    <a href="{{ url_for('index') }}" class="btn btn-primary btn-lg">
+                        <i class="fas fa-home me-2"></i>
+                        Go to Dashboard
+                    </a>
+                    <button onclick="history.back()" class="btn btn-outline-secondary btn-lg">
+                        <i class="fas fa-arrow-left me-2"></i>
+                        Go Back
+                    </button>
+                    <button onclick="location.reload()" class="btn btn-outline-warning btn-lg">
+                        <i class="fas fa-sync-alt me-2"></i>
+                        Try Again
+                    </button>
+                </div>
+
+                <div class="mt-5">
+                    <h5 class="mb-3">System Status</h5>
+                    <div class="row justify-content-center">
+                        <div class="col-md-4 mb-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-heartbeat fa-2x text-{% if system_status.backend_status == 'healthy' %}success{% else %}danger{% endif %} mb-2"></i>
+                                    <h6>Backend API</h6>
+                                    <span class="badge bg-{% if system_status.backend_status == 'healthy' %}success{% else %}danger{% endif %}">
+                                        {{ system_status.backend_status|upper }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-database fa-2x text-{% if system_status.database_status == 'healthy' %}success{% else %}danger{% endif %} mb-2"></i>
+                                    <h6>Database</h6>
+                                    <span class="badge bg-{% if system_status.database_status == 'healthy' %}success{% else %}danger{% endif %}">
+                                        {{ system_status.database_status|upper }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-tasks fa-2x text-{% if system_status.celery_status == 'healthy' %}success{% else %}danger{% endif %} mb-2"></i>
+                                    <h6>Celery Workers</h6>
+                                    <span class="badge bg-{% if system_status.celery_status == 'healthy' %}success{% else %}danger{% endif %}">
+                                        {{ system_status.celery_status|upper }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Technical Details:</strong>
+                        <br>
+                        <small class="text-muted">
+                            Timestamp: {{ timestamp }}<br>
+                            Request ID: {{ request_id }}
+                        </small>
+                    </div>
+                </div>
+
+                <div class="mt-4 text-muted">
+                    <small>
+                        <i class="fas fa-phone me-1"></i>
+                        Support: support@situational-awareness.lk | 
+                        <i class="fas fa-envelope me-1"></i>
+                        Email: admin@modelx.lk
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.error-page {
+    padding: 3rem 0;
+    min-height: 70vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.display-1 {
+    font-size: 8rem;
+    font-weight: 300;
+    line-height: 1;
+    margin-bottom: 2rem;
+}
+
+@media (max-width: 768px) {
+    .display-1 {
+        font-size: 6rem;
+    }
+    
+    .btn-lg {
+        font-size: 1rem;
+        padding: 0.75rem 1.5rem;
+    }
+    
+    .col-md-4 {
+        margin-bottom: 1rem;
+    }
+}
+</style>
+{% endblock %}

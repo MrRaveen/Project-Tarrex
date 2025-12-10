@@ -1,0 +1,479 @@
+{% extends "base.html" %}
+
+{% block title %}System Health - Sri Lanka Situational Awareness{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0">
+            <i class="fas fa-heartbeat text-danger me-2"></i>
+            System Health
+        </h1>
+        <div class="btn-group">
+            <button class="btn btn-outline-primary" onclick="refreshHealth()">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+            <button class="btn btn-outline-success" onclick="runHealthCheck()">
+                <i class="fas fa-stethoscope"></i> Run Health Check
+            </button>
+        </div>
+    </div>
+
+    <!-- System Status Overview -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card {% if system_status.overall_status == 'healthy' %}bg-success{% else %}bg-danger{% endif %} text-white">
+                <div class="card-body text-center">
+                    <i class="fas fa-server fa-2x mb-2"></i>
+                    <h5 class="card-title">Overall Status</h5>
+                    <h3 class="card-text">{{ system_status.overall_status|upper }}</h3>
+                    <small>Uptime: {{ system_status.uptime }}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card {% if system_status.backend_status == 'healthy' %}bg-success{% else %}bg-danger{% endif %} text-white">
+                <div class="card-body text-center">
+                    <i class="fas fa-code fa-2x mb-2"></i>
+                    <h5 class="card-title">Backend API</h5>
+                    <h3 class="card-text">{{ system_status.backend_status|upper }}</h3>
+                    <small>Version: {{ system_status.backend_version }}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card {% if system_status.database_status == 'healthy' %}bg-success{% else %}bg-danger{% endif %} text-white">
+                <div class="card-body text-center">
+                    <i class="fas fa-database fa-2x mb-2"></i>
+                    <h5 class="card-title">Database</h5>
+                    <h3 class="card-text">{{ system_status.database_status|upper }}</h3>
+                    <small>Collections: {{ system_status.database_collections }}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card {% if system_status.celery_status == 'healthy' %}bg-success{% else %}bg-danger{% endif %} text-white">
+                <div class="card-body text-center">
+                    <i class="fas fa-tasks fa-2x mb-2"></i>
+                    <h5 class="card-title">Celery Workers</h5>
+                    <h3 class="card-text">{{ system_status.celery_status|upper }}</h3>
+                    <small>Workers: {{ system_status.celery_workers }}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Service Health Details -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list-alt me-2"></i>
+                        Service Health Details
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Service</th>
+                                    <th>Status</th>
+                                    <th>Response Time</th>
+                                    <th>Last Checked</th>
+                                    <th>Details</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for service in system_status.services %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ service.name }}</strong>
+                                        <br>
+                                        <small class="text-muted">{{ service.description }}</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge {% if service.status == 'healthy' %}bg-success{% elif service.status == 'degraded' %}bg-warning{% else %}bg-danger{% endif %}">
+                                            {{ service.status|upper }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="{% if service.response_time < 100 %}text-success{% elif service.response_time < 500 %}text-warning{% else %}text-danger{% endif %}">
+                                            {{ service.response_time }}ms
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <small>{{ service.last_checked|datetimeformat }}</small>
+                                    </td>
+                                    <td>
+                                        {% if service.error %}
+                                        <span class="text-danger" data-bs-toggle="tooltip" title="{{ service.error }}">
+                                            <i class="fas fa-exclamation-circle"></i> Error
+                                        </span>
+                                        {% else %}
+                                        <span class="text-success">
+                                            <i class="fas fa-check-circle"></i> OK
+                                        </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-primary" onclick="testService('{{ service.name }}')">
+                                                <i class="fas fa-test"></i> Test
+                                            </button>
+                                            {% if service.status != 'healthy' %}
+                                            <button class="btn btn-outline-warning" onclick="restartService('{{ service.name }}')">
+                                                <i class="fas fa-redo"></i> Restart
+                                            </button>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Metrics -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-microchip me-2"></i>
+                        Resource Usage
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <div class="mb-3">
+                                <h6>CPU Usage</h6>
+                                <div class="progress" style="height: 20px;">
+                                    <div class="progress-bar {% if system_metrics.cpu_percent < 70 %}bg-success{% elif system_metrics.cpu_percent < 90 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                         style="width: {{ system_metrics.cpu_percent }}%" 
+                                         role="progressbar">
+                                        {{ system_metrics.cpu_percent }}%
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="mb-3">
+                                <h6>Memory Usage</h6>
+                                <div class="progress" style="height: 20px;">
+                                    <div class="progress-bar {% if system_metrics.memory_percent < 70 %}bg-success{% elif system_metrics.memory_percent < 90 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                         style="width: {{ system_metrics.memory_percent }}%" 
+                                         role="progressbar">
+                                        {{ system_metrics.memory_percent }}%
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="mb-3">
+                                <h6>Disk Usage</h6>
+                                <div class="progress" style="height: 20px;">
+                                    <div class="progress-bar {% if system_metrics.disk_percent < 70 %}bg-success{% elif system_metrics.disk_percent < 90 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                         style="width: {{ system_metrics.disk_percent }}%" 
+                                         role="progressbar">
+                                        {{ system_metrics.disk_percent }}%
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-3">
+                        <div class="col-6">
+                            <small class="text-muted">
+                                <i class="fas fa-bolt"></i>
+                                CPU: {{ system_metrics.cpu_cores }} cores
+                            </small>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">
+                                <i class="fas fa-memory"></i>
+                                Memory: {{ system_metrics.memory_used|filesizeformat }} / {{ system_metrics.memory_total|filesizeformat }}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-bar me-2"></i>
+                        Performance Metrics
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <div class="mb-3">
+                                <h6>API Requests</h6>
+                                <h4 class="text-primary">{{ system_metrics.api_requests }}</h4>
+                                <small class="text-muted">Total</small>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="mb-3">
+                                <h6>Error Rate</h6>
+                                <h4 class="{% if system_metrics.error_rate < 1 %}text-success{% elif system_metrics.error_rate < 5 %}text-warning{% else %}text-danger{% endif %}">
+                                    {{ system_metrics.error_rate }}%
+                                </h4>
+                                <small class="text-muted">Last hour</small>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="mb-3">
+                                <h6>Avg Response</h6>
+                                <h4 class="{% if system_metrics.avg_response_time < 100 %}text-success{% elif system_metrics.avg_response_time < 500 %}text-warning{% else %}text-danger{% endif %}">
+                                    {{ system_metrics.avg_response_time }}ms
+                                </h4>
+                                <small class="text-muted">API calls</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-3">
+                        <div class="col-6">
+                            <small class="text-muted">
+                                <i class="fas fa-database"></i>
+                                DB Queries: {{ system_metrics.db_queries }}/min
+                            </small>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">
+                                <i class="fas fa-tasks"></i>
+                                Tasks: {{ system_metrics.celery_tasks }}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Errors -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-exclamation-triangle me-2 text-warning"></i>
+                        Recent Errors & Warnings
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if system_errors and system_errors.errors %}
+                    <div class="list-group">
+                        {% for error in system_errors.errors %}
+                        <div class="list-group-item list-group-item-{% if error.level == 'error' %}danger{% elif error.level == 'warning' %}warning{% else %}info{% endif %}">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">
+                                        <i class="fas {% if error.level == 'error' %}fa-exclamation-circle{% elif error.level == 'warning' %}fa-exclamation-triangle{% else %}fa-info-circle{% endif %}"></i>
+                                        {{ error.service }} - {{ error.message }}
+                                    </h6>
+                                    <small class="text-muted">{{ error.timestamp|datetimeformat }}</small>
+                                </div>
+                                <div>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="viewErrorDetails('{{ error.id }}')">
+                                        <i class="fas fa-eye"></i> Details
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-check-circle fa-2x text-success mb-2"></i>
+                        <br>
+                        No recent errors
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Error Details Modal -->
+<div class="modal fade" id="errorDetailsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="errorModalTitle">Error Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="errorModalBody">
+                <!-- Error details will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="acknowledgeError()">Acknowledge</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Initialize page
+    document.addEventListener('DOMContentLoaded', function() {
+        initializeTooltips();
+        setupAutoRefresh();
+    });
+
+    function initializeTooltips() {
+        // Initialize Bootstrap tooltips
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    }
+
+    function setupAutoRefresh() {
+        // Auto-refresh health status every 60 seconds
+        setInterval(refreshHealth, 60000);
+    }
+
+    function refreshHealth() {
+        window.location.reload();
+    }
+
+    function runHealthCheck() {
+        fetch('/api/health/check', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Health check completed successfully');
+                refreshHealth();
+            } else {
+                alert('Health check failed: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error running health check:', error);
+            alert('Error running health check');
+        });
+    }
+
+    function testService(serviceName) {
+        fetch(`/api/health/test/${serviceName}`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(`Service ${serviceName} test completed: ${data.status}`);
+                refreshHealth();
+            } else {
+                alert('Service test failed: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error testing service:', error);
+            alert('Error testing service');
+        });
+    }
+
+    function restartService(serviceName) {
+        if (confirm(`Restart service ${serviceName}?`)) {
+            fetch(`/api/health/restart/${serviceName}`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(`Service ${serviceName} restart initiated`);
+                    refreshHealth();
+                } else {
+                    alert('Service restart failed: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error restarting service:', error);
+                alert('Error restarting service');
+            });
+        }
+    }
+
+    function viewErrorDetails(errorId) {
+        fetch(`/api/health/errors/${errorId}`)
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('errorModalTitle').textContent = `Error: ${data.service}`;
+                document.getElementById('errorModalBody').innerHTML = `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <strong>Service:</strong> ${data.service}<br>
+                            <strong>Level:</strong> 
+                            <span class="badge ${data.level === 'error' ? 'bg-danger' : data.level === 'warning' ? 'bg-warning' : 'bg-info'}">
+                                ${data.level.toUpperCase()}
+                            </span><br>
+                            <strong>Timestamp:</strong> ${new Date(data.timestamp).toLocaleString()}<br>
+                            <strong>Status:</strong> 
+                            <span class="badge ${data.resolved ? 'bg-success' : 'bg-danger'}">
+                                ${data.resolved ? 'RESOLVED' : 'ACTIVE'}
+                            </span>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Error Code:</strong> ${data.error_code || 'N/A'}<br>
+                            <strong>Occurrences:</strong> ${data.occurrences || 1}<br>
+                            <strong>First Occurrence:</strong> ${new Date(data.first_occurrence).toLocaleString()}<br>
+                            <strong>Last Occurrence:</strong> ${new Date(data.last_occurrence).toLocaleString()}
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <strong>Message:</strong>
+                            <div class="alert alert-${data.level === 'error' ? 'danger' : data.level === 'warning' ? 'warning' : 'info'}">
+                                ${data.message}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    ${data.stack_trace ? `
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <strong>Stack Trace:</strong>
+                            <pre class="bg-dark text-light p-3 small">${data.stack_trace}</pre>
+                        </div>
+                    </div>
+                    ` : ''}
+                `;
+                
+                const modal = new bootstrap.Modal(document.getElementById('errorDetailsModal'));
+                modal.show();
+            })
+            .catch(error => {
+                console.error('Error loading error details:', error);
+                alert('Error loading error details');
+            });
+    }
+
+    function acknowledgeError() {
+        alert('Error acknowledgment functionality to be implemented');
+    }
+</script>
+{% endblock %}

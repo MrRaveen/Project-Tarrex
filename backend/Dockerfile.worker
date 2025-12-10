@@ -1,48 +1,41 @@
-# #Builds a Docker image for running Celery workers for the backend app
-# # Use Python 3.11 slim image
-# FROM python:3.11-slim
-
-# # Set working directory
-# WORKDIR /app
-
-# # Copy everything from project root
-# COPY . .
-
-# # Install dependencies
-# RUN pip install --no-cache-dir -r backend/requirements.txt
-# RUN pip install flower
-
-# # Set Python path
-# ENV PYTHONPATH=/app
-
-# # Default command (can be overridden in docker-compose)
-# CMD ["celery", "-A", "backend.app.config.celery_app", "worker", "--loglevel=info"]
-
-
-# Builds a Docker image for running Celery workers for the backend app
+# Use official Python runtime as base image
 FROM python:3.11-slim
 
 # Set working directory
 WORKDIR /app
 
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
+ENV CELERY_BROKER_URL=redis://redis:6379/0
+ENV CELERY_RESULT_BACKEND=redis://redis:6379/0
+ENV MONGODB_URI=mongodb://mongodb:27017/situational_awareness
+
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy backend requirements and install
-COPY backend/requirements.txt .
+# Copy requirements file
+COPY requirements.txt .
+
+# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install flower explicitly
-RUN pip install flower
+# Install NLTK data
+RUN python -c "import nltk; nltk.download('punkt'); nltk.download('stopwords'); nltk.download('wordnet'); nltk.download('vader_lexicon')"
 
-# Copy backend code
-COPY backend/ .
+# Copy application code
+COPY . .
 
-# Set Python path
-ENV PYTHONPATH=/app
-ENV DB_NAME=tarrex
+# Create non-root user
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+USER appuser
 
-# Default command (can be overridden in docker-compose)
-CMD ["celery", "-A", "app.config.celery_app", "worker", "--loglevel=info"]
+# Health check
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD celery -A app.celery inspect ping -d celery@$HOSTNAME || exit 1
+
+# Command to run Celery worker
+CMD ["celery", "-A", "app.celery", "worker", "--loglevel=info", "--concurrency=4"]

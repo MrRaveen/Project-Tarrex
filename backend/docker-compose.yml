@@ -1,0 +1,148 @@
+version: '3.8'
+
+services:
+  # Redis service for Celery broker and result backend
+  redis:
+    image: redis:7-alpine
+    container_name: situational_awareness_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - situational_awareness_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # MongoDB service for data storage
+  mongodb:
+    image: mongo:6-jammy
+    container_name: situational_awareness_mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: situational_awareness
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin123
+    volumes:
+      - mongodb_data:/data/db
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    networks:
+      - situational_awareness_network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Flask application
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: situational_awareness_web
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+      - MONGODB_URI=mongodb://admin:admin123@mongodb:27017/situational_awareness?authSource=admin
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - /app/__pycache__
+    networks:
+      - situational_awareness_network
+    restart: unless-stopped
+
+  # Celery worker for background tasks
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    container_name: situational_awareness_worker
+    environment:
+      - MONGODB_URI=mongodb://admin:admin123@mongodb:27017/situational_awareness?authSource=admin
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      web:
+        condition: service_started
+    volumes:
+      - .:/app
+      - /app/__pycache__
+    networks:
+      - situational_awareness_network
+    restart: unless-stopped
+    command: celery -A app.celery worker --loglevel=info --concurrency=4
+
+  # Celery beat for scheduled tasks
+  beat:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    container_name: situational_awareness_beat
+    environment:
+      - MONGODB_URI=mongodb://admin:admin123@mongodb:27017/situational_awareness?authSource=admin
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      web:
+        condition: service_started
+    volumes:
+      - .:/app
+      - /app/__pycache__
+    networks:
+      - situational_awareness_network
+    restart: unless-stopped
+    command: celery -A app.celery beat --loglevel=info
+
+  # Flower for monitoring Celery tasks
+  flower:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    container_name: situational_awareness_flower
+    ports:
+      - "5555:5555"
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+      worker:
+        condition: service_started
+    networks:
+      - situational_awareness_network
+    restart: unless-stopped
+    command: celery -A app.celery flower --port=5555
+
+volumes:
+  redis_data:
+    driver: local
+  mongodb_data:
+    driver: local
+
+networks:
+  situational_awareness_network:
+    driver: bridge

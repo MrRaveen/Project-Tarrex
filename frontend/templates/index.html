@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Sri Lankan Situational Awareness{% endblock %}
+
+{% block page_title %}Dashboard Overview{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- System Status Card -->
+    <div class="col-md-3 mb-4">
+        <div class="card {% if health_status.status == 'success' %}bg-success{% else %}bg-danger{% endif %} text-white">
+            <div class="card-body text-center">
+                <i class="fas fa-heartbeat fa-3x mb-2"></i>
+                <h5 class="card-title">System Status</h5>
+                <p class="card-text">
+                    {% if health_status.status == 'success' %}
+                        Operational
+                    {% else %}
+                        Offline
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Indicators Card -->
+    <div class="col-md-3 mb-4">
+        <div class="card bg-info text-white">
+            <div class="card-body text-center">
+                <i class="fas fa-chart-line fa-3x mb-2"></i>
+                <h5 class="card-title">Indicators</h5>
+                <p class="card-text">
+                    {% if indicators.status == 'success' and indicators.data.indicators %}
+                        {{ indicators.data.indicators|length }} Active
+                    {% else %}
+                        No Data
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Risks Card -->
+    <div class="col-md-3 mb-4">
+        <div class="card bg-warning text-dark">
+            <div class="card-body text-center">
+                <i class="fas fa-exclamation-triangle fa-3x mb-2"></i>
+                <h5 class="card-title">Risks</h5>
+                <p class="card-text">
+                    {% if risks.status == 'success' and risks.data.risks %}
+                        {{ risks.data.risks|length }} Detected
+                    {% else %}
+                        No Risks
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Insights Card -->
+    <div class="col-md-3 mb-4">
+        <div class="card bg-primary text-white">
+            <div class="card-body text-center">
+                <i class="fas fa-lightbulb fa-3x mb-2"></i>
+                <h5 class="card-title">Insights</h5>
+                <p class="card-text">
+                    {% if insights.status == 'success' and insights.data.insights %}
+                        {{ insights.data.insights|length }} Generated
+                    {% else %}
+                        No Insights
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Indicators -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-chart-line"></i> Recent Indicators</h5>
+            </div>
+            <div class="card-body">
+                {% if indicators.status == 'success' and indicators.data.indicators %}
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Type</th>
+                                    <th>Value</th>
+                                    <th>Confidence</th>
+                                    <th>Trend</th>
+                                    <th>Timestamp</th>
+                                    <th>Source</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for indicator in indicators.data.indicators[:5] %}
+                                <tr>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ indicator.type }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="fw-bold">{{ "%.2f"|format(indicator.value) }}</span>
+                                    </td>
+                                    <td>
+                                        <div class="progress" style="height: 20px; width: 100px;">
+                                            <div class="progress-bar {% if indicator.confidence > 0.7 %}bg-success{% elif indicator.confidence > 0.4 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                                 style="width: {{ indicator.confidence * 100 }}%">
+                                                {{ "%.0f"|format(indicator.confidence * 100) }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if indicator.trend == 'improving' %}
+                                            <span class="badge bg-success"><i class="fas fa-arrow-up"></i> Improving</span>
+                                        {% elif indicator.trend == 'declining' %}
+                                            <span class="badge bg-danger"><i class="fas fa-arrow-down"></i> Declining</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary"><i class="fas fa-minus"></i> Stable</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small>{{ indicator.timestamp[:19]|replace('T', ' ') }}</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">{{ indicator.source }}</span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-database fa-3x mb-2"></i>
+                        <p>No indicator data available</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Risks and Insights -->
+<div class="row mt-4">
+    <!-- Recent Risks -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-exclamation-triangle"></i> Recent Risks</h5>
+            </div>
+            <div class="card-body">
+                {% if risks.status == 'success' and risks.data.risks %}
+                    {% for risk in risks.data.risks[:3] %}
+                    <div class="alert {% if risk.severity == 'critical' %}alert-danger{% elif risk.severity == 'high' %}alert-warning{% elif risk.severity == 'medium' %}alert-info{% else %}alert-secondary{% endif %} mb-2">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>{{ risk.description }}</strong>
+                                <br>
+                                <small>Category: {{ risk.category }} | Impact: {{ "%.1f"|format(risk.impact) }}</small>
+                            </div>
+                            <span class="badge {% if risk.severity == 'critical' %}bg-danger{% elif risk.severity == 'high' %}bg-warning{% elif risk.severity == 'medium' %}bg-info{% else %}bg-secondary{% endif %}">
+                                {{ risk.severity|upper }}
+                            </span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-shield-alt fa-3x mb-2"></i>
+                        <p>No risk data available</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Insights -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-lightbulb"></i> Recent Insights</h5>
+            </div>
+            <div class="card-body">
+                {% if insights.status == 'success' and insights.data.insights %}
+                    {% for insight in insights.data.insights[:3] %}
+                    <div class="card mb-2">
+                        <div class="card-body">
+                            <h6 class="card-title">{{ insight.title }}</h6>
+                            <p class="card-text">{{ insight.description[:100] }}...</p>
+                            <div class="d-flex justify-content-between">
+                                <small class="text-muted">
+                                    Impact: 
+                                    <span class="badge {% if insight.impact == 'high' %}bg-danger{% elif insight.impact == 'medium' %}bg-warning{% else %}bg-info{% endif %}">
+                                        {{ insight.impact }}
+                                    </span>
+                                </small>
+                                <small class="text-muted">
+                                    Confidence: {{ "%.0f"|format(insight.confidence * 100) }}%
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-brain fa-3x mb-2"></i>
+                        <p>No insight data available</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-bolt"></i> Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 mb-2">
+                        <a href="{{ url_for('pipeline') }}" class="btn btn-primary w-100">
+                            <i class="fas fa-cogs"></i> Run Pipeline
+                        </a>
+                    </div>
+                    <div class="col-md-4 mb-2">
+                        <a href="{{ url_for('indicators') }}" class="btn btn-info w-100">
+                            <i class="fas fa-chart-line"></i> View Indicators
+                        </a>
+                    </div>
+                    <div class="col-md-4 mb-2">
+                        <a href="{{ url_for('health') }}" class="btn btn-success w-100">
+                            <i class="fas fa-heartbeat"></i> System Health
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
