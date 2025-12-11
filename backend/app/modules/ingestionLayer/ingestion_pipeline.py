@@ -5,7 +5,7 @@ from pymongo import MongoClient
 from pymongo.errors import DuplicateKeyError
 import json
 
-from ...config.mongo_config import get_mongo_client
+from ...config.mongo_config import mongo as get_mongo_client
 from ...model.news_model import NewsBatch
 from ...model.trends_model import TrendsBatch
 from ...model.youtube_model import YouTubeBatch
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 class IngestionPipeline:
     def __init__(self):
-        self.mongo_client = get_mongo_client()
+        self.mongo_client = get_mongo_client
         self.db = self.mongo_client.situational_awareness
         
         # Collections

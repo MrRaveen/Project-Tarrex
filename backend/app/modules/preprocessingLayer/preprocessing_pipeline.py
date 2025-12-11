@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Dict, Any, List, Optional
 from pymongo import MongoClient
 
-from ...config.mongo_config import get_mongo_client
+from ...config.mongo_config import mongo as get_mongo_client
 from .data_cleaner import DataCleaner
 from .text_preprocessor import TextPreprocessor
 from .normalization_engine import NormalizationEngine
@@ -16,7 +16,7 @@ class PreprocessingPipeline:
         self.text_preprocessor = TextPreprocessor()
         self.normalization_engine = NormalizationEngine()
         
-        self.mongo_client = get_mongo_client()
+        self.mongo_client = get_mongo_client
         self.db = self.mongo_client.situational_awareness
         
         # Collections for processed data

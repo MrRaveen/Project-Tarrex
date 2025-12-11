@@ -1,3 +1,4 @@
+import os
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure
 from flask import current_app
@@ -15,10 +16,11 @@ class MongoDBManager:
     def init_app(self, app):
         try:
             # Build connection string
-            if app.config['MONGODB_USERNAME'] and app.config['MONGODB_PASSWORD']:
-                connection_string = f"mongodb://{app.config['MONGODB_USERNAME']}:{app.config['MONGODB_PASSWORD']}@{app.config['MONGODB_HOST']}:{app.config['MONGODB_PORT']}/?authSource=admin"
-            else:
-                connection_string = f"mongodb://{app.config['MONGODB_HOST']}:{app.config['MONGODB_PORT']}"
+            # if app.config['MONGODB_USERNAME'] and app.config['MONGODB_PASSWORD']:
+            #     connection_string = f"mongodb://{app.config['MONGODB_USERNAME']}:{app.config['MONGODB_PASSWORD']}@{app.config['MONGODB_HOST']}:{app.config['MONGODB_PORT']}/?authSource=admin"
+            # else:
+            #     connection_string = f"mongodb://{app.config['MONGODB_HOST']}:{app.config['MONGODB_PORT']}"
+            connection_string = os.getenv('MONGO_URI')
             
             self.client = MongoClient(
                 connection_string,
